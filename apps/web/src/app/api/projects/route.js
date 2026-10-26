@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { writeFile, unlink } from "node:fs/promises";
+import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { assetDirectory, createProject, deleteProject, enqueue, getProject, listProjects } from "@/lib/store.mjs";
@@ -31,6 +31,7 @@ export const POST = route(async (request) => {
         const buffer = Buffer.from(await file.arrayBuffer());
         try { validateSignature(buffer, name); } catch (error) { throw new HttpError(error.message); }
         const sourceAsset = `${randomUUID()}.${type}`;
+        await mkdir(assetDirectory, { recursive: true });
         await writeFile(join(assetDirectory, sourceAsset), buffer);
         let project;
         try {
