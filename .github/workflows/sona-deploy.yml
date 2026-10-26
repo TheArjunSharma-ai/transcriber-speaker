@@ -70,7 +70,8 @@ jobs:
             apps/web/next.config.mjs apps/web/.env.example \
             apps/web/.next apps/web/public \
             apps/web/scripts apps/web/src/lib
-          if tar -tzf "$SONA_ARCHIVE" | grep -E '(^|/)(node_modules|\.data|\.git)(/|$)|(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$'; then
+          tar -tzf "$SONA_ARCHIVE" > "$RUNNER_TEMP/sona-archive-manifest.txt"
+          if grep -E '(^|/)(\.data|\.git)(/|$)|(^|/)\.env($|\.)|^(node_modules|apps/web/node_modules)(/|$)' "$RUNNER_TEMP/sona-archive-manifest.txt" | grep -vE '^apps/web/\.env\.example$'; then
             echo "Unexpected dependencies, runtime data, or private environment files in archive."
             exit 1
           fi

@@ -105,7 +105,7 @@ To run it on GitHub:
 2. Open **Actions > Sona Build Artifact** and choose **Run workflow**, or push to `main`.
 3. After a successful run, download `sona-build-<commit SHA>` from the run's **Artifacts** section. It is retained for 14 days and contains `sona-build.tar.gz`.
 
-The archive includes the production `.next` build, public assets, runtime library modules, worker, package manifests, and environment template. It excludes dependencies, build caches, local SQLite/assets, and private environment files. GitHub's artifact download is a ZIP containing the tar archive; extract both layers into a new directory, not over a running workspace.
+The archive includes the production `.next` build, including Next.js-generated `.next/node_modules` runtime files, public assets, runtime library modules, worker, package manifests, and environment template. It excludes source-install `node_modules` directories, build caches, local SQLite/assets, and private environment files. GitHub's artifact download is a ZIP containing the tar archive; extract both layers into a new directory, not over a running workspace.
 
 From that extracted directory, with Node.js 24 installed:
 
