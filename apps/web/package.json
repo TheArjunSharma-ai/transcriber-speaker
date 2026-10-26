@@ -1,0 +1,32 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "worker": "node --env-file-if-exists=.env.local scripts/worker.mjs"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "ipaddr.js": "^2.5.0",
+    "jsdom": "^30.1.3",
+    "lucide-react": "^1.61.0",
+    "mammoth": "^1.13.0",
+    "next": "16.4.3",
+    "pdf-parse": "^2.4.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "undici": "^8.12.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "fflate": "^0.8.3",
+    "tailwindcss": "^4"
+  }
+}
