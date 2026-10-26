@@ -93,6 +93,31 @@ Unit tests use isolated temporary storage and mocked provider responses; they ma
 
 For a production-mode **local** run, stop the development server first, then run `npm run build` followed by `npm start`, while the worker remains running. Do not run a build and dev server against the same `.next` directory simultaneously. Turbopack may report tracing warnings for configurable runtime filesystem paths; this local application is not a serverless deployment bundle.
 
+## GitHub Actions Build Artifact
+
+The workflow [.github/workflows/sona-deploy.yml](.github/workflows/sona-deploy.yml) runs on pushes and pull requests to `main` or `master`, version tags starting with `v`, and manual runs. Despite the filename, this is **build-and-package only**: it does not publish a website, deploy to a server, or enable GitHub Pages.
+
+It installs locked dependencies using Node.js 24, runs lint and unit tests, builds Next.js, and packages the application with its worker. CI then extracts that archive, installs production dependencies, starts the packaged server and worker on loopback, and runs the API integration test. No provider secrets or paid API calls are needed. Runtime data uses the runner's temporary directory.
+
+To run it on GitHub:
+
+1. Commit and push the workflow, application files, and `apps/web/package-lock.json` to your repository.
+2. Open **Actions > Sona Build Artifact** and choose **Run workflow**, or push to `main`.
+3. After a successful run, download `sona-build-<commit SHA>` from the run's **Artifacts** section. It is retained for 14 days and contains `sona-build.tar.gz`.
+
+The archive includes the production `.next` build, public assets, runtime library modules, worker, package manifests, and environment template. It excludes dependencies, build caches, local SQLite/assets, and private environment files. GitHub's artifact download is a ZIP containing the tar archive; extract both layers into a new directory, not over a running workspace.
+
+From that extracted directory, with Node.js 24 installed:
+
+```powershell
+npm --prefix apps/web ci --omit=dev
+npm start
+```
+
+In a second terminal in the same directory, run `npm run worker`. Configure `apps/web/.env.local` privately for live speech features, following the setup section, and restart both processes after configuration changes. There is no need to rebuild the downloaded artifact. Use a compatible Node.js 24 host; a container image or server deployment is not supplied by this workflow.
+
+The artifact preserves the existing local-only access restrictions. Public hosting still requires the security and infrastructure work below. Failed runs may include diagnostic log artifacts, retained for seven days.
+
 ## Security and Remaining Roadmap
 
 **This is a single-user local edition, not the complete production MVP. Do not expose it publicly or deploy it as a multi-user service.** The server binds to loopback and API handlers reject non-local Host headers and cross-origin requests. There is no account system, encrypted file storage, or tenant authorization. Other applications running as your OS user can access local data.

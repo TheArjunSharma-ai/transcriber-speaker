@@ -1,0 +1,121 @@
+name: Sona Build Artifact
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sona-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, Build, and Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      OPENAI_API_KEY: ""
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Configure temporary paths
+        shell: bash
+        run: |
+          printf 'DATA_DIR=%s/sona-build-data\nSONA_ARCHIVE=%s/sona-build.tar.gz\n' \
+            "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
+      - name: Install locked dependencies
+        run: npm --prefix apps/web ci
+
+      - name: Lint application
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build Next.js application
+        run: npm run build
+
+      - name: Package application and worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar \
+            --exclude='apps/web/.next/cache' \
+            --exclude='apps/web/.next/dev' \
+            --exclude='apps/web/.next/diagnostics' \
+            -czf "$SONA_ARCHIVE" \
+            package.json README.md Plan.md \
+            apps/web/package.json apps/web/package-lock.json \
+            apps/web/next.config.mjs apps/web/.env.example \
+            apps/web/.next apps/web/public \
+            apps/web/scripts apps/web/src/lib
+          if tar -tzf "$SONA_ARCHIVE" | grep -E '(^|/)(node_modules|\.data|\.git)(/|$)|(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$'; then
+            echo "Unexpected dependencies, runtime data, or private environment files in archive."
+            exit 1
+          fi
+
+      - name: Smoke-test packaged application
+        shell: bash
+        env:
+          DATA_DIR: ${{ runner.temp }}/sona-smoke-data
+          TEST_BASE_URL: http://127.0.0.1:3000
+          PORT: "3000"
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/sona-runtime.XXXXXX")"
+          tar -xzf "$SONA_ARCHIVE" -C "$runtime_dir"
+          npm --prefix "$runtime_dir/apps/web" ci --omit=dev
+          npm --prefix "$runtime_dir" start > "$RUNNER_TEMP/sona-server.log" 2>&1 &
+          server_pid=$!
+          npm --prefix "$runtime_dir" run worker > "$RUNNER_TEMP/sona-worker.log" 2>&1 &
+          worker_pid=$!
+          trap 'kill "$server_pid" "$worker_pid" 2>/dev/null || true' EXIT
+          curl --fail --silent --show-error \
+            --retry 30 --retry-delay 1 --retry-connrefused \
+            --retry-max-time 120 --max-time 5 \
+            "$TEST_BASE_URL/api/status" > "$RUNNER_TEMP/sona-status.json"
+          node -e 'const fs = require("node:fs"); const status = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/sona-status.json", "utf8")); if (!status.workerOnline || status.speechConfigured) { console.error("Expected a connected worker and no live provider key."); process.exit(1); }'
+          npm run test:integration
+
+      - name: Upload verified build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sona-build-${{ github.sha }}
+          path: ${{ runner.temp }}/sona-build.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Upload troubleshooting logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sona-logs-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/sona-server.log
+            ${{ runner.temp }}/sona-worker.log
+            ${{ runner.temp }}/sona-status.json
+          if-no-files-found: ignore
+          retention-days: 7
