@@ -93,16 +93,42 @@ Unit tests use isolated temporary storage and mocked provider responses; they ma
 
 For a production-mode **local** run, stop the development server first, then run `npm run build` followed by `npm start`, while the worker remains running. Do not run a build and dev server against the same `.next` directory simultaneously. Turbopack may report tracing warnings for configurable runtime filesystem paths; this local application is not a serverless deployment bundle.
 
+## GitHub Pages Browser Edition
+
+The browser edition is a separate static React build in `apps/pages` that reuses the Next.js application's interface. It supports local PDF/DOCX/TXT/Markdown/CSV/HTML imports, pasted text and chats, editing, TXT/source downloads, project search/deletion, and device speech. Projects are stored in IndexedDB on the visitor's browser, not on GitHub. Clearing site data removes those projects; export important text. Browser voices may use the browser's speech service.
+
+Audio/video transcription, website fetching, server-generated audio, and timestamped subtitle exports require the full local application and are not available on Pages. No provider keys belong in this public static build.
+
+To publish the site and resolve the repository URL's 404:
+
+1. Commit and push these changes, including `apps/pages/package-lock.json`.
+2. Open the repository's **Settings > Pages**, set **Source** to **GitHub Actions**, and save. Repository administration access is required for this setting.
+3. Open **Actions > Sona Build and Pages** and run the workflow on `main`, or push to `main`.
+4. Wait for **Build Browser Edition** and **Deploy GitHub Pages** to succeed.
+5. Open https://thearjunsharma-ai.github.io/transcriber-speaker/.
+
+The Pages job builds under `/<repository-name>/`. App links use hash routes, such as `/transcriber-speaker/#/library`, so refreshing a project does not request a nonexistent server route. The full Next.js app and its local data are unchanged.
+
+To build and preview the static site locally:
+
+```powershell
+npm run setup
+npm run build:pages
+npm run preview:pages -- --port 4173
+```
+
+Open http://127.0.0.1:4173/transcriber-speaker/. A development server is also available with `npm run dev:pages`. Pages deployment is separate from the server artifact checks; the browser site does not require a successful backend artifact or an OpenAI account.
+
 ## GitHub Actions Build Artifact
 
-The workflow [.github/workflows/sona-deploy.yml](.github/workflows/sona-deploy.yml) runs on pushes and pull requests to `main` or `master`, version tags starting with `v`, and manual runs. Despite the filename, this is **build-and-package only**: it does not publish a website, deploy to a server, or enable GitHub Pages.
+The workflow [.github/workflows/sona-deploy.yml](.github/workflows/sona-deploy.yml) runs on pushes and pull requests to `main` or `master`, version tags starting with `v`, and manual runs. Its **Test, Build, and Package** job produces the full local app's artifact; separate jobs publish the browser edition to Pages. It does not deploy the server application to a hosting service.
 
 It installs locked dependencies using Node.js 24, runs lint and unit tests, builds Next.js, and packages the application with its worker. CI then extracts that archive, installs production dependencies, starts the packaged server and worker on loopback, and runs the API integration test. No provider secrets or paid API calls are needed. Runtime data uses the runner's temporary directory.
 
 To run it on GitHub:
 
 1. Commit and push the workflow, application files, and `apps/web/package-lock.json` to your repository.
-2. Open **Actions > Sona Build Artifact** and choose **Run workflow**, or push to `main`.
+2. Open **Actions > Sona Build and Pages** and choose **Run workflow**, or push to `main`.
 3. After a successful run, download `sona-build-<commit SHA>` from the run's **Artifacts** section. It is retained for 14 days and contains `sona-build.tar.gz`.
 
 The archive includes the production `.next` build, including Next.js-generated `.next/node_modules` runtime files, public assets, runtime library modules, worker, package manifests, and environment template. It excludes source-install `node_modules` directories, build caches, local SQLite/assets, and private environment files. GitHub's artifact download is a ZIP containing the tar archive; extract both layers into a new directory, not over a running workspace.

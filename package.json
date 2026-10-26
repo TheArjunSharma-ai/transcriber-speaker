@@ -10,7 +10,10 @@
         "lint": "npm --prefix apps/web run lint",
         "test": "node --test tests/*.test.mjs",
         "test:integration": "node --test tests/api.integration.mjs",
-        "setup": "npm --prefix apps/web install"
+        "setup": "npm --prefix apps/web install && npm --prefix apps/pages install",
+        "build:pages": "npm --prefix apps/pages run build",
+        "dev:pages": "npm --prefix apps/pages run dev --",
+        "preview:pages": "npm --prefix apps/pages run preview --"
     },
     "engines": {
         "node": ">=24"

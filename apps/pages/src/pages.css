@@ -1,0 +1,22 @@
+:root {
+    --font-body: "DM Sans";
+    --font-display: "Manrope";
+}
+
+.quick-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 760px) {
+    .quick-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .quick-actions>button {
+        border-left: 0;
+    }
+
+    .quick-actions>button+button {
+        border-top: 1px solid var(--line);
+    }
+}

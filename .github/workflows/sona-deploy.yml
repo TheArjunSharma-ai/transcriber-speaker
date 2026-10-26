@@ -1,4 +1,4 @@
-name: Sona Build Artifact
+name: Sona Build and Pages
 
 on:
   push:
@@ -45,7 +45,9 @@ jobs:
             "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - name: Install locked dependencies
-        run: npm --prefix apps/web ci
+        run: |
+          npm --prefix apps/web ci
+          npm --prefix apps/pages ci
 
       - name: Lint application
         run: npm run lint
@@ -120,3 +122,66 @@ jobs:
             ${{ runner.temp }}/sona-status.json
           if-no-files-found: ignore
           retention-days: 7
+
+  pages-build:
+    name: Build Browser Edition
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PAGES_BASE_PATH: /${{ github.event.repository.name }}/
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/pages/package-lock.json
+
+      - name: Install locked dependencies
+        run: |
+          npm --prefix apps/web ci
+          npm --prefix apps/pages ci
+
+      - name: Test browser storage
+        run: node --test tests/pages.test.mjs
+
+      - name: Lint browser edition
+        run: npm --prefix apps/pages run lint
+
+      - name: Build browser edition
+        run: npm --prefix apps/pages run build
+
+      - name: Upload Pages site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/pages/dist
+
+  pages-deploy:
+    name: Deploy GitHub Pages
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: pages-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: sona-pages
+      cancel-in-progress: false
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy browser edition
+        id: deployment
+        uses: actions/deploy-pages@v4

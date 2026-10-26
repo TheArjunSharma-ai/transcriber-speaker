@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, FileAudio2, FileText, Globe2, LoaderCircle, MessageSquareText, Type, UploadCloud, X } from "lucide-react";
-import { api, loadPreferences } from "./api";
+import { api, browserEdition, loadPreferences } from "./api";
 
 const modes = [
     { id: "media", label: "Audio & video", icon: FileAudio2 },
@@ -11,13 +11,13 @@ const modes = [
     { id: "website", label: "Website", icon: Globe2 },
     { id: "text", label: "Text", icon: Type },
     { id: "chat", label: "Chat", icon: MessageSquareText },
-];
+].filter((mode) => !browserEdition || ["document", "text", "chat"].includes(mode.id));
 
 export default function NewProject({ initialMode = "media", onClose }) {
     const router = useRouter();
     const dialog = useRef(null);
     const input = useRef(null);
-    const [mode, setMode] = useState(initialMode);
+    const [mode, setMode] = useState(modes.some((mode) => mode.id === initialMode) ? initialMode : "text");
     const [file, setFile] = useState(null);
     const [title, setTitle] = useState("");
     const [text, setText] = useState("");
